@@ -1,0 +1,17 @@
+/**
+ * Compares the given values and return 1, -1 or 0 depending on
+ * whether the first value is larger, smaller or equal to the second.
+ * @param a First value
+ * @param b Second value
+ * @param direction Which order is used, 'asc' or 'desc'
+ */
+export default function compare<T>(a: T, b: T, direction?: 'asc' | 'desc') {
+  const factor = direction === 'desc' ? -1 : 1;
+  if (a > b) {
+    return factor;
+  }
+  if (a < b) {
+    return -factor;
+  }
+  return 0;
+}
