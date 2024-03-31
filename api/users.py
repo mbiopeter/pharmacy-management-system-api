@@ -3,7 +3,8 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from django.db import connection
 from rest_framework import status
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import make_password, check_password
+from django.utils import timezone
 
 @api_view(['POST'])
 def newUser(request):
@@ -69,3 +70,30 @@ def allUsers(request):
                     return Response({'message': 'no user found'}, status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+@api_view(['POST'])
+def login(request):
+    if request.method == 'POST':
+        username = request.data.get('username')
+        password = request.data.get('password')
+        if username and password:
+            query = """
+                SELECT * FROM api_users
+                WHERE username = %s
+            """
+            params = [username]
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(query, params)
+                    user = cursor.fetchone()
+                    if user is not None and check_password(password, user[8]):
+                        user_id = user[0]
+                        request.session['user_id'] = user_id
+                        request.session.set_expiry(3600)                 
+                        return Response({'status':True ,'username':username}, status=status.HTTP_200_OK)
+                    else:
+                        return Response({'status':False }, status=status.HTTP_401_UNAUTHORIZED)
+            except Exception as e:
+                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            return Response({'error': 'Missing required fields.'}, status=status.HTTP_400_BAD_REQUEST)

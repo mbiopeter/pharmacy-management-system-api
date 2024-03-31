@@ -4,4 +4,5 @@ from .import users
 urlpatterns =[
     path('users/new/', users.newUser, name='newUser'),
     path('users/all/', users.allUsers, name='allUsers'),
+    path('login/', users.login, name='login'),
 ]
