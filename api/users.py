@@ -4,7 +4,6 @@ from rest_framework.decorators import api_view
 from django.db import connection
 from rest_framework import status
 from django.contrib.auth.hashers import make_password, check_password
-from django.utils import timezone
 
 @api_view(['POST'])
 def newUser(request):
@@ -97,3 +96,64 @@ def login(request):
                 return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             return Response({'error': 'Missing required fields.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+@api_view(['POST'])
+def updateProfile(request):
+    if request.method == 'POST':
+        id = request.data.get('id')
+        password = request.data.get('password')
+        username = request.data.get('username')
+        email = request.data.get('email')
+        contact = request.data.get('contact')
+        location = request.data.get('location')
+        link = request.data.get('link')
+        if password:
+            hashed_password = make_password(password)
+            query = """
+                UPDATE api_users SET password = %s WHERE id = %s
+            """
+            params = [hashed_password,id]
+            with connection.cursor() as cursor:
+                cursor.execute(query, params)
+            return Response({'status':'user informations updated succesfully'}, status=status.HTTP_200_OK)
+        if username:
+            query = """
+                UPDATE api_users SET username = %s WHERE id = %s
+            """
+            params = [username,id]
+            with connection.cursor() as cursor:
+                cursor.execute(query, params)
+            return Response({'status':'user informations updated succesfully'}, status=status.HTTP_200_OK)
+        if email:
+            query = """
+                UPDATE api_users SET email = %s WHERE id = %s
+            """
+            params = [email,id]
+            with connection.cursor() as cursor:
+                cursor.execute(query, params)
+            return Response({'status':'user informations updated succesfully'}, status=status.HTTP_200_OK)
+        if contact:
+            query = """
+                UPDATE api_users SET contact = %s WHERE id = %s
+            """
+            params = [contact,id]
+            with connection.cursor() as cursor:
+                cursor.execute(query, params)
+            return Response({'status':'user informations updated succesfully'}, status=status.HTTP_200_OK)
+        if location:
+            query = """
+                UPDATE api_users SET location = %s WHERE id = %s
+            """
+            params = [location,id]
+            with connection.cursor() as cursor:
+                cursor.execute(query, params)
+            return Response({'status':'user informations updated succesfully'}, status=status.HTTP_200_OK)
+        if link:
+            query = """
+                UPDATE api_users SET link = %s WHERE id = %s
+            """
+            params = [link,id]
+            with connection.cursor() as cursor:
+                cursor.execute(query, params)
+            return Response({'status':'user informations updated succesfully'}, status=status.HTTP_200_OK)
+

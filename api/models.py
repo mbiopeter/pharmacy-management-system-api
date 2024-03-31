@@ -35,5 +35,8 @@ class users(models.Model):
     gender = models.CharField(max_length=200,null=True,blank=True)
     username = models.CharField(max_length=200,null=False,blank=False)
     password = models.CharField(max_length=600,null=False,blank=False)
+    contact = models.IntegerField(null=True)
+    location = models.CharField(max_length=200,null=True,blank=True)
+    link = models.CharField(max_length=200,null=True,blank=True)
     def __str__(self):
         return self.employeeId
