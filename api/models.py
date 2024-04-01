@@ -1,31 +1,5 @@
 from django.db import models
-
-# Create your models here.
-class Medicine(models.Model):
-    brandName = models.CharField(max_length=300,null=False,blank=False)
-    genericName = models.CharField(max_length=300,null=False,blank=False)
-    quantity = models.IntegerField()
-    expieryDate = models.DateField()
-    category = models.CharField(max_length=300,null=True,blank=True)
-    shelfNo = models.CharField(max_length=300,null=True,blank=True)
-    unit = models.CharField(max_length=300,null=False,blank=False)
-    group = models.CharField(max_length=300,null=True,blank=True)
-    tax = models.DecimalField(max_digits=4,decimal_places=2,null=True,blank=True)
-    supplierPrice = models.DecimalField(max_digits=4,decimal_places=2,null=True,blank=True)
-    salePrice = models.DecimalField(max_digits=4,decimal_places=2,null=True,blank=True)
-    supplier = models.CharField(max_length=200,null=True,blank=True)
-    howToUse = models.TextField()
-    sideEffects = models.TextField()
-    image = models.CharField(max_length=300,null=True,blank=True)
-    def __str__(self):
-        return self.brandName
-    
-class generalMedicine(models.Model):
-    medicineId = models.IntegerField()
-    quantity =  models.IntegerField()
-    def __str__(self):
-        return self.medicineId
-
+# USER RELATED TABLES
 class users(models.Model):
     firstName = models.CharField(max_length=200,null=False,blank=False)
     secondName = models.CharField(max_length=200,null=False,blank=False)
@@ -52,3 +26,38 @@ class roles(models.Model):
     permission = models.ForeignKey(permissions, on_delete=models.CASCADE)
     def __str__(self):
         return self.userId
+    
+#MEDICINE RELATED TABLES
+class medicine(models.Model):
+    brandName = models.CharField(max_length=200,null=False,blank=False)
+    genericName = models.CharField(max_length=200,null=False,blank=False)
+    description = models.TextField()
+    usage = models.TextField()
+    category = models.CharField(max_length=200,null=False,blank=False)
+    image = models.CharField(max_length=200,null=False,blank=False)
+    def __str__(self):
+        return self.genericName
+    
+class batch(models.Model):
+    medicineId = models.ForeignKey(medicine, on_delete=models.CASCADE)
+    quantity = models.IntegerField()
+    expiery = models.DateTimeField()
+    price = models.IntegerField(null=True)
+    supplierPrice = models.IntegerField(null=True)
+    supplier = models.CharField(max_length=200,null=True,blank=True)
+    unit = models.CharField(max_length=200,null=True,blank=True)
+    shelf = models.CharField(max_length=200,null=True,blank=True)
+    def __str__(self):
+        return self.medicineId
+    
+class sales(models.Model):
+    batchId = models.ForeignKey(batch, on_delete=models.CASCADE)
+    date = models.DateTimeField(max_length=10,null=True,blank=True)
+    price = models.IntegerField(null=False)
+    salerId =  models.ForeignKey(users, on_delete=models.CASCADE)
+    def __str__(self):
+        return self.medicineId
+
+class supplier(models.Model):
+    name = models.CharField(max_length=200,null=False,blank=False)
+    address = models.CharField(max_length=200,null=True,blank=True)
