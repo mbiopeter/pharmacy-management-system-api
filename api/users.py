@@ -190,3 +190,86 @@ def profileInfo(request, userId):
                 return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             return Response({'error': 'User Id is not provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+@api_view(['GET'])
+def allPermission(request):
+    if request.method == 'GET':
+        query = """
+            SELECT * FROM api_permissions;
+        """
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(query)
+                results = cursor.fetchall()
+            if results:
+                permissions = []
+                for row in results:
+                    permission = {
+                        'id': row[0],
+                        'name': row[1]
+                    }
+                    permissions.append(permission)
+                return Response(permissions, status=status.HTTP_200_OK)
+            else:
+                return Response({'message': 'no permission found'}, status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+@api_view(['POST'])
+def addRole(request,userId,permissionId):
+    if request.method == 'POST':
+        if userId and permissionId:
+            querycheck = """
+                SELECT * FROM 
+                api_roles WHERE
+                user_id = %s AND
+                permission_id = %s
+            """
+            queryadd = """
+                INSERT INTO 
+                api_roles(user_id, permission_id)
+                VALUES (%s, %s)
+            """
+            params = [userId, permissionId]
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(querycheck, params)
+                    results = cursor.fetchall()
+                    if results is None:
+                        cursor.execute(queryadd, params)
+                    else:
+                        return Response({'error': 'Permission allready assigned to the user'}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            return Response({'error': 'UserId or permissionId is not provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+def getPermissions(request,userId):
+    if request.method == 'GET':
+        if userId:
+            query = """
+                SELECT p.* FROM
+                api_permissions AS p 
+                INNER JOIN api_roles AS r 
+                ON p.id = r.permission_id 
+                WHERE r.user_id = %s
+            """
+            param = [userId]
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(query, param)
+                    results = cursor.fetchall()
+                    if results:
+                        user_roles = []
+                        for row in results:
+                            role = {
+                                'id':row[0],
+                                'name':row[1]
+                            }
+                            user_roles.append(role)
+                        return Response(user_roles, status=status.HTTP_200_OK)
+            except Exception as e:
+                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            return Response({'error': 'UserId is not provided'}, status=status.HTTP_400_BAD_REQUEST)

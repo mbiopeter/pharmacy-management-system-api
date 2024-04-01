@@ -41,3 +41,14 @@ class users(models.Model):
     img = models.CharField(max_length=200,null=True,blank=True)
     def __str__(self):
         return self.employeeId
+    
+class permissions(models.Model):
+    permission =  models.CharField(max_length=200,null=False,blank=False)
+    def __str__(self):
+        return self.userId
+    
+class roles(models.Model):
+    user = models.ForeignKey(users, on_delete=models.CASCADE)
+    permission = models.ForeignKey(permissions, on_delete=models.CASCADE)
+    def __str__(self):
+        return self.userId
