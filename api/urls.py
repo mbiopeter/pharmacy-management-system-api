@@ -1,7 +1,8 @@
 from django.urls import path
-from .import users
+from .import users,medicines
 
 urlpatterns =[
+    #user related paths
     path('users/new/', users.newUser, name='newUser'),
     path('users/all/', users.allUsers, name='allUsers'),
     path('users/profile/', users.updateProfile, name='updateProfile'),
@@ -10,4 +11,6 @@ urlpatterns =[
     path('users/role/<int:userId>/<int:permissionId>/', users.addRole, name='addRole'),
     path('users/role/<int:userId>/', users.getPermissions, name='getPermissions'),
     path('login/', users.login, name='login'),
+    #medicine related paths
+    path('medicine/add/', medicines.addMedicine, name='addMedicine'),
 ]

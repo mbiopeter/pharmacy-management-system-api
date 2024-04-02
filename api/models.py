@@ -38,26 +38,32 @@ class medicine(models.Model):
     def __str__(self):
         return self.genericName
     
+class supplier(models.Model):
+    name = models.CharField(max_length=200,null=False,blank=False)
+    address = models.CharField(max_length=200,null=True,blank=True)
+
+
 class batch(models.Model):
-    medicineId = models.ForeignKey(medicine, on_delete=models.CASCADE)
+    medicine = models.ForeignKey(medicine, on_delete=models.CASCADE)
     quantity = models.IntegerField()
     expiery = models.DateTimeField()
     price = models.IntegerField(null=True)
-    supplierPrice = models.IntegerField(null=True)
-    supplier = models.CharField(max_length=200,null=True,blank=True)
     unit = models.CharField(max_length=200,null=True,blank=True)
     shelf = models.CharField(max_length=200,null=True,blank=True)
     def __str__(self):
         return self.medicineId
     
 class sales(models.Model):
-    batchId = models.ForeignKey(batch, on_delete=models.CASCADE)
+    batch = models.ForeignKey(batch, on_delete=models.CASCADE)
     date = models.DateTimeField(max_length=10,null=True,blank=True)
     price = models.IntegerField(null=False)
-    salerId =  models.ForeignKey(users, on_delete=models.CASCADE)
+    saler =  models.ForeignKey(users, on_delete=models.CASCADE)
     def __str__(self):
-        return self.medicineId
-
-class supplier(models.Model):
-    name = models.CharField(max_length=200,null=False,blank=False)
-    address = models.CharField(max_length=200,null=True,blank=True)
+        return self.batchId
+    
+class supplies(models.Model):
+    batch = models.ForeignKey(batch, on_delete=models.CASCADE)
+    supplier = models.ForeignKey(supplier, on_delete=models.CASCADE, default=None)
+    supplierPrice = models.IntegerField(null=True)
+    def __str__(self):
+        return self.supplierId
