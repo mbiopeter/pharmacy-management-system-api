@@ -4,6 +4,8 @@ from rest_framework.decorators import api_view
 from django.db import connection
 from rest_framework import status
 from django.contrib.auth.hashers import make_password, check_password
+from django.contrib.auth import logout
+from django.http import JsonResponse
 
 @api_view(['POST'])
 def newUser(request):
@@ -21,6 +23,7 @@ def newUser(request):
             query_check = """
                 SELECT * FROM api_users
                 WHERE idNumber = %s
+                AND status != 'Deleted'
             """
             query_create = """
                 INSERT INTO 
@@ -56,10 +59,10 @@ def allUsers(request):
                 if results:
                     users_data = []
                     for row in results:
+                        fullName = row[1] + ' ' + row[2]
                         user = {
                             'id': row[0],
-                            'firstName': row[1],
-                            'secondName': row[2],
+                            'fullName': fullName,
                             'email': row[3],
                             'employeeId': row[5],
                         }
@@ -88,19 +91,29 @@ def login(request):
                     if user is not None and check_password(password, user[8]):
                         user_id = user[0]
                         request.session['user_id'] = user_id
-                        request.session.set_expiry(3600)                 
-                        return Response({'status':True ,'username':username}, status=status.HTTP_200_OK)
+                        request.session.set_expiry(60)                 
+                        return Response({'status': True, 'user_id': user_id, 'username': username}, status=status.HTTP_200_OK)
                     else:
+                        print('login unsuccessfull')
                         return Response({'status':False }, status=status.HTTP_401_UNAUTHORIZED)
             except Exception as e:
                 return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             return Response({'error': 'Missing required fields.'}, status=status.HTTP_400_BAD_REQUEST)
         
+
 @api_view(['POST'])
-def updateProfile(request):
+def logout(request):
     if request.method == 'POST':
-        id = request.data.get('id')
+        try:
+            request.session.flush()
+            return Response({'message': 'Logged out successfully'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+def updateProfile(request,id):
+    if request.method == 'POST':
         password = request.data.get('password')
         username = request.data.get('username')
         email = request.data.get('email')
@@ -273,3 +286,23 @@ def getPermissions(request,userId):
                 return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             return Response({'error': 'UserId is not provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+@api_view(['POST'])
+def deleteUser(request, userId):
+    if request.method == 'POST':   
+        if userId:    
+            query = """
+                UPDATE api_users 
+                SET status = %s 
+                WHERE id = %s
+            """
+            params = ['Deleted',userId]
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(query,params)
+            except Exception as e:
+                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            return Response({'error': 'UserId is not provided'}, status=status.HTTP_400_BAD_REQUEST)
+        return JsonResponse({'message': 'Medicine deleted successfully.'}, status=status.HTTP_201_CREATED)

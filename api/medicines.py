@@ -131,3 +131,35 @@ def addMedicine(request):
         else:
             return Response({'error': 'Missing required fields.'}, status=status.HTTP_400_BAD_REQUEST)
         return JsonResponse({'message': 'Medicine added successfully.'}, status=status.HTTP_201_CREATED)
+    
+
+@api_view(['GET'])
+def getAll(request):
+    if request.method == 'GET':
+        query = """
+            SELECT m.id,m.genericName,m.category,b.quantity,b.expiry 
+            FROM api_medicine as m 
+            INNER JOIN api_batch as b 
+            ON m.id = b.medicine_id
+        """
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(query)
+                results = cursor.fetchall()
+                cursor.commit()
+                if results:
+                    details = []
+                    for row in results:
+                        detail = {
+                            'medicineId': row[0],
+                            'genericName': row[1],
+                            'category': row[2],
+                            'quantity': row[3],
+                            'expiry': row[4],
+                        }
+                        details.append(detail)
+                    return Response(details, status=status.HTTP_200_OK)
+                else:
+                    return Response({'message':'No medicine found'}, status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
