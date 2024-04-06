@@ -4,8 +4,9 @@ from rest_framework.decorators import api_view
 from django.db import connection
 from rest_framework import status
 from django.contrib.auth.hashers import make_password, check_password
-from django.contrib.auth import logout
 from django.http import JsonResponse
+from django.contrib.auth import authenticate
+from django.contrib.auth.models import User
 
 @api_view(['POST'])
 def newUser(request):
@@ -23,15 +24,14 @@ def newUser(request):
             query_check = """
                 SELECT * FROM api_users
                 WHERE idNumber = %s
-                AND status != 'Deleted'
             """
             query_create = """
                 INSERT INTO 
-                api_users(firstName,secondName,email,idNumber,employeeId,gender,username,password)
-                VALUES(%s,%s,%s,%s,%s,%s,%s,%s)
+                api_users(firstName,secondName,email,idNumber,employeeId,gender,username,password,status)
+                VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """
             param_check = [idNumber]
-            params_create = [firstName,secondName,email,idNumber,employeeId,gender,username,hashed_password]
+            params_create = [firstName,secondName,email,idNumber,employeeId,gender,username,hashed_password,'Active']
             try:
                 with connection.cursor() as cursor:
                     cursor.execute(query_check,param_check)
@@ -47,31 +47,37 @@ def newUser(request):
             return Response({'error': 'Missing required fields.'}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
-def allUsers(request):
+def allUsers(request,currentUserId):
     if request.method == 'GET':
-        query = """
-            SELECT * FROM api_users
-        """
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute(query)
-                results = cursor.fetchall()
-                if results:
-                    users_data = []
-                    for row in results:
-                        fullName = row[1] + ' ' + row[2]
-                        user = {
-                            'id': row[0],
-                            'fullName': fullName,
-                            'email': row[3],
-                            'employeeId': row[5],
-                        }
-                        users_data.append(user)
-                    return Response(users_data, status=status.HTTP_200_OK)
-                else:
-                    return Response({'message': 'no user found'}, status=status.HTTP_204_NO_CONTENT)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if currentUserId is not None:
+            query = """
+                SELECT * 
+                FROM api_users  
+                WHERE status = %s AND id != %s
+            """
+            params = ['Active',currentUserId]
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(query,params)
+                    results = cursor.fetchall()
+                    if results:
+                        users_data = []
+                        for row in results:
+                            fullName = row[1] + ' ' + row[2]
+                            user = {
+                                'id': row[0],
+                                'fullName': fullName,
+                                'email': row[3],
+                                'employeeId': row[5],
+                            }
+                            users_data.append(user)
+                        return Response(users_data, status=status.HTTP_200_OK)
+                    else:
+                        return Response({'message': 'no user found'}, status=status.HTTP_204_NO_CONTENT)
+            except Exception as e:
+                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            return Response({'error': 'You are not looged in'}, status=status.HTTP_400_BAD_REQUEST)
         
 @api_view(['POST'])
 def login(request):
@@ -81,9 +87,9 @@ def login(request):
         if username and password:
             query = """
                 SELECT * FROM api_users
-                WHERE username = %s
+                WHERE username = %s AND status = %s
             """
-            params = [username]
+            params = [username, 'Active']
             try:
                 with connection.cursor() as cursor:
                     cursor.execute(query, params)
@@ -91,17 +97,19 @@ def login(request):
                     if user is not None and check_password(password, user[8]):
                         user_id = user[0]
                         request.session['user_id'] = user_id
-                        request.session.set_expiry(60)                 
-                        return Response({'status': True, 'user_id': user_id, 'username': username}, status=status.HTTP_200_OK)
+                        request.session.set_expiry(60*60*2) 
+                        print("Session Data:", request.session)
+                        return JsonResponse({'status': True, 'user_id': user_id, 'username': username})
                     else:
-                        print('login unsuccessfull')
-                        return Response({'status':False }, status=status.HTTP_401_UNAUTHORIZED)
+                        print('login unsuccessful')
+                        return JsonResponse({'status': False}, status=status.HTTP_401_UNAUTHORIZED)
             except Exception as e:
-                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
-            return Response({'error': 'Missing required fields.'}, status=status.HTTP_400_BAD_REQUEST)
-        
-
+            return JsonResponse({'error': 'Missing required fields.'}, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        return JsonResponse({'error': 'Invalid request method.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    
 @api_view(['POST'])
 def logout(request):
     if request.method == 'POST':
@@ -305,4 +313,4 @@ def deleteUser(request, userId):
                 return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             return Response({'error': 'UserId is not provided'}, status=status.HTTP_400_BAD_REQUEST)
-        return JsonResponse({'message': 'Medicine deleted successfully.'}, status=status.HTTP_201_CREATED)
+        return JsonResponse({'message': 'user deleted successfully.'}, status=status.HTTP_201_CREATED)
