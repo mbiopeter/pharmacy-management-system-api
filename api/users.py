@@ -314,3 +314,70 @@ def deleteUser(request, userId):
         else:
             return Response({'error': 'UserId is not provided'}, status=status.HTTP_400_BAD_REQUEST)
         return JsonResponse({'message': 'user deleted successfully.'}, status=status.HTTP_201_CREATED)
+    
+
+@api_view(['POST'])
+def DeleteUserBin(request,userId):
+    if request.method == 'POST':
+        if userId:
+            roleQuery = """
+                DELETE FROM api_roles WHERE user_id = %s
+            """
+            param = [userId]
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(roleQuery,param)
+                    queryUser = """
+                        DELETE FROM api_users WHERE id = %s AND status = 'Deleted'
+                    """
+                    cursor.execute(queryUser, param)
+                    return Response('User deleted successfully', status=status.HTTP_200_OK)
+            except Exception as e:
+                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            return Response({'error': 'UserId is not provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+@api_view(['POST'])
+def restoreUser(request, userId):
+    if request.method == 'POST':
+        if userId:
+            query = """
+                UPDATE api_users SET status = %s WHERE id = %s
+            """
+            params = ['Active',userId]
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(query, params)
+                    return Response('User successfully restored', status=status.HTTP_200_OK)
+            except Exception as e:
+                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            return Response({'error': 'UserId is not provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+@api_view(['GEt'])
+def getRecycledUsers(request):
+    if request.method == 'GET':
+        query = """
+            SELECT * FROM api_users WHERE status = %s
+        """
+        param = ['Deleted']
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(query,param)
+                results = cursor.fetchall()
+                if results is not None:
+                    users_data = []
+                    for row in results:
+                        fullName = row[1] + ' ' + row[2]
+                        user = {
+                            'id': row[0],
+                            'fullName': fullName,
+                            'email': row[3],
+                            'employeeId': row[5],
+                        }
+                        users_data.append(user)
+                    return Response(users_data, status=status.HTTP_200_OK)
+                else:
+                    return Response({'message': 'no user found'}, status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

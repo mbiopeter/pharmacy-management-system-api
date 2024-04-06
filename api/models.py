@@ -58,7 +58,7 @@ class sales(models.Model):
     batch = models.ForeignKey(batch, on_delete=models.CASCADE)
     date = models.DateTimeField(max_length=10,null=True,blank=True)
     price = models.IntegerField(null=False)
-    saler =  models.ForeignKey(users, on_delete=models.CASCADE)
+    saler_id =  models.CharField(max_length=200,null=False,blank=False)
     def __str__(self):
         return self.batchId
     
