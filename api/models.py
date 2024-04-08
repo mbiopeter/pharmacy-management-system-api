@@ -14,6 +14,7 @@ class users(models.Model):
     link = models.CharField(max_length=200,null=True,blank=True)
     img = models.CharField(max_length=200,null=True,blank=True)
     status = models.CharField(max_length=200,null=True,blank=True, default='Active')
+    deleteTime = models.DateTimeField(null=True,blank=True)
     def __str__(self):
         return self.employeeId
     
@@ -58,7 +59,7 @@ class sales(models.Model):
     batch = models.ForeignKey(batch, on_delete=models.CASCADE)
     date = models.DateTimeField(max_length=10,null=True,blank=True)
     price = models.IntegerField(null=False)
-    saler_id =  models.CharField(max_length=200,null=False,blank=False)
+    saler_id =  models.IntegerField(default=0)
     def __str__(self):
         return self.batchId
     

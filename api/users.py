@@ -5,8 +5,8 @@ from django.db import connection
 from rest_framework import status
 from django.contrib.auth.hashers import make_password, check_password
 from django.http import JsonResponse
-from django.contrib.auth import authenticate
-from django.contrib.auth.models import User
+import datetime
+from django.core.management.base import BaseCommand
 
 @api_view(['POST'])
 def newUser(request):
@@ -300,12 +300,15 @@ def getPermissions(request,userId):
 def deleteUser(request, userId):
     if request.method == 'POST':   
         if userId:    
+            current_datetime = datetime.datetime.now()
+            time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
             query = """
                 UPDATE api_users 
-                SET status = %s 
+                SET status = %s,
+                deleteTime = %s
                 WHERE id = %s
             """
-            params = ['Deleted',userId]
+            params = ['Deleted',time,userId]
             try:
                 with connection.cursor() as cursor:
                     cursor.execute(query,params)
@@ -316,27 +319,21 @@ def deleteUser(request, userId):
         return JsonResponse({'message': 'user deleted successfully.'}, status=status.HTTP_201_CREATED)
     
 
-@api_view(['POST'])
-def DeleteUserBin(request,userId):
-    if request.method == 'POST':
-        if userId:
-            roleQuery = """
-                DELETE FROM api_roles WHERE user_id = %s
-            """
-            param = [userId]
-            try:
-                with connection.cursor() as cursor:
-                    cursor.execute(roleQuery,param)
-                    queryUser = """
-                        DELETE FROM api_users WHERE id = %s AND status = 'Deleted'
-                    """
-                    cursor.execute(queryUser, param)
-                    return Response('User deleted successfully', status=status.HTTP_200_OK)
-            except Exception as e:
-                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        else:
-            return Response({'error': 'UserId is not provided'}, status=status.HTTP_400_BAD_REQUEST)
-        
+@api_view(['DELETE'])
+def deleteExpired(request):
+    if request.method == 'DELETE':   
+        thirty_days_ago = datetime.datetime.now() - datetime.timedelta(minutes=15)
+        query = """
+            DELETE FROM api_users WHERE status = 'Deleted' AND deleteTime < %s
+        """
+        params = [thirty_days_ago]
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(query, params)
+            return Response('Expired recycle deleted', status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 @api_view(['POST'])
 def restoreUser(request, userId):
     if request.method == 'POST':
@@ -365,7 +362,7 @@ def getRecycledUsers(request):
             with connection.cursor() as cursor:
                 cursor.execute(query,param)
                 results = cursor.fetchall()
-                if results is not None:
+                if results:
                     users_data = []
                     for row in results:
                         fullName = row[1] + ' ' + row[2]
