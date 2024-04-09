@@ -322,7 +322,7 @@ def deleteUser(request, userId):
 @api_view(['DELETE'])
 def deleteExpired(request):
     if request.method == 'DELETE':   
-        thirty_days_ago = datetime.datetime.now() - datetime.timedelta(minutes=15)
+        thirty_days_ago = datetime.datetime.now() - datetime.timedelta(days=30)
         query = """
             DELETE FROM api_users WHERE status = 'Deleted' AND deleteTime < %s
         """
@@ -378,3 +378,24 @@ def getRecycledUsers(request):
                     return Response({'message': 'no user found'}, status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+@api_view(['GET'])
+def employeeId(request):
+    if request.method == 'GET':
+        query = """
+            SELECT Id
+            FROM api_users
+            ORDER BY id DESC
+            LIMIT 1;
+        """
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(query)
+                row = cursor.fetchone()
+                if row:
+                    empId = row[0]
+                    return JsonResponse({'empId':empId}, status=200)
+                else:
+                    return JsonResponse({'message': 'No user found'}, status=204)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)

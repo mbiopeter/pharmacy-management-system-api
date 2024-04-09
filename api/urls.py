@@ -14,6 +14,7 @@ urlpatterns =[
     path('users/recycle/restore/<int:userId>/', users.restoreUser, name='getPermissions'),
     path('users/recycle/all/', users.getRecycledUsers, name='getPermissions'),
     path('users/delete/all/', users.deleteExpired, name='getPermissions'),
+    path('users/employeeId/', users.employeeId, name='employeeId'),
     path('login/', users.login, name='login'),
     path('logout/', users.logout, name='logout'),
     #medicine related paths
