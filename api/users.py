@@ -196,9 +196,9 @@ def profileInfo(request, userId):
                     cursor.execute(query,param)
                     result = cursor.fetchone()
                 if result:
+                    fullName = result[0] + ' ' + result[1]
                     user = {
-                        'firstName': result[0],
-                        'secondName': result[1],
+                        'name':fullName,
                         'email': result[2],
                         'location': result[3],
                         'link': result[4],
@@ -227,7 +227,8 @@ def allPermission(request):
                 for row in results:
                     permission = {
                         'id': row[0],
-                        'name': row[1]
+                        'name': row[1],
+                        'number': row[2]
                     }
                     permissions.append(permission)
                 return Response(permissions, status=status.HTTP_200_OK)
@@ -237,7 +238,7 @@ def allPermission(request):
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 @api_view(['POST'])
-def addRole(request,userId,permissionId):
+def addRole(request, userId, permissionId):
     if request.method == 'POST':
         if userId and permissionId:
             querycheck = """
@@ -251,15 +252,23 @@ def addRole(request,userId,permissionId):
                 api_roles(user_id, permission_id)
                 VALUES (%s, %s)
             """
+            queryRemove = """
+                DELETE FROM 
+                api_roles WHERE 
+                user_id = %s AND 
+                permission_id = %s
+            """
             params = [userId, permissionId]
             try:
                 with connection.cursor() as cursor:
                     cursor.execute(querycheck, params)
                     results = cursor.fetchall()
-                    if results is None:
+                    if not results:
                         cursor.execute(queryadd, params)
+                        return Response({'success': 'Role added successfully'}, status=status.HTTP_200_OK)
                     else:
-                        return Response({'error': 'Permission allready assigned to the user'}, status=status.HTTP_400_BAD_REQUEST)
+                        cursor.execute(queryRemove, params)
+                        return Response({'success': 'Role deleted successfully'}, status=status.HTTP_200_OK)  
             except Exception as e:
                 return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
@@ -290,6 +299,8 @@ def getPermissions(request,userId):
                             }
                             user_roles.append(role)
                         return Response(user_roles, status=status.HTTP_200_OK)
+                    else:
+                        return Response([], status=status.HTTP_200_OK)
             except Exception as e:
                 return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
@@ -338,10 +349,11 @@ def deleteExpired(request):
 def restoreUser(request, userId):
     if request.method == 'POST':
         if userId:
+            now =  datetime.datetime.now()
             query = """
-                UPDATE api_users SET status = %s WHERE id = %s
+                UPDATE api_users SET status = %s,deleteTime = %s  WHERE id = %s
             """
-            params = ['Active',userId]
+            params = ['Active',now,userId]
             try:
                 with connection.cursor() as cursor:
                     cursor.execute(query, params)
