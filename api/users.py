@@ -96,10 +96,11 @@ def login(request):
                     user = cursor.fetchone()
                     if user is not None and check_password(password, user[8]):
                         user_id = user[0]
+                        img = user[12]
                         request.session['user_id'] = user_id
                         request.session.set_expiry(60*60*2) 
                         print("Session Data:", request.session)
-                        return JsonResponse({'status': True, 'user_id': user_id, 'username': username})
+                        return JsonResponse({'status': True, 'user_id': user_id, 'username': username,'img':img})
                     else:
                         print('login unsuccessful')
                         return JsonResponse({'status': False}, status=status.HTTP_401_UNAUTHORIZED)
@@ -129,55 +130,34 @@ def updateProfile(request,id):
         location = request.data.get('location')
         link = request.data.get('link')
         try:
+            query = "UPDATE api_users SET "
+            params = []
             if password:
                 hashed_password = make_password(password)
-                query = """
-                    UPDATE api_users SET password = %s WHERE id = %s
-                """
-                params = [hashed_password,id]
-                with connection.cursor() as cursor:
-                    cursor.execute(query, params)
-                return Response({'status':'user informations updated succesfully'}, status=status.HTTP_200_OK)
+                query += "password = %s, "
+                params.append(hashed_password)
             if username:
-                query = """
-                    UPDATE api_users SET username = %s WHERE id = %s
-                """
-                params = [username,id]
-                with connection.cursor() as cursor:
-                    cursor.execute(query, params)
-                return Response({'status':'user informations updated succesfully'}, status=status.HTTP_200_OK)
+                query += "username = %s, "
+                params.append(username)
             if email:
-                query = """
-                    UPDATE api_users SET email = %s WHERE id = %s
-                """
-                params = [email,id]
-                with connection.cursor() as cursor:
-                    cursor.execute(query, params)
-                return Response({'status':'user informations updated succesfully'}, status=status.HTTP_200_OK)
+                query += "email = %s, "
+                params.append(email)
             if contact:
-                query = """
-                    UPDATE api_users SET contact = %s WHERE id = %s
-                """
-                params = [contact,id]
-                with connection.cursor() as cursor:
-                    cursor.execute(query, params)
-                return Response({'status':'user informations updated succesfully'}, status=status.HTTP_200_OK)
+                query += "contact = %s, "
+                params.append(contact)
             if location:
-                query = """
-                    UPDATE api_users SET location = %s WHERE id = %s
-                """
-                params = [location,id]
-                with connection.cursor() as cursor:
-                    cursor.execute(query, params)
-                return Response({'status':'user informations updated succesfully'}, status=status.HTTP_200_OK)
+                query += "location = %s, "
+                params.append(location)
             if link:
-                query = """
-                    UPDATE api_users SET link = %s WHERE id = %s
-                """
-                params = [link,id]
-                with connection.cursor() as cursor:
-                    cursor.execute(query, params)
-                return Response({'status':'user informations updated succesfully'}, status=status.HTTP_200_OK)
+                query += "link = %s, "
+                params.append(link)
+            query = query.rstrip(', ')
+            query += " WHERE id = %s"
+            params.append(id)
+            with connection.cursor() as cursor:
+                cursor.execute(query, params)
+            return Response({'status': 'User information updated successfully'}, status=status.HTTP_200_OK)
+
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -186,7 +166,7 @@ def profileInfo(request, userId):
     if request.method == 'GET':
         if userId:
             query = """
-                SELECT firstName, secondName,email, location, link,img 
+                SELECT firstName, secondName,email, location, link,img,contact,username 
                 FROM api_users 
                 WHERE id = %s
             """
@@ -198,11 +178,15 @@ def profileInfo(request, userId):
                 if result:
                     fullName = result[0] + ' ' + result[1]
                     user = {
+                        'firstName':result[0],
+                        'secondName':result[1],
                         'name':fullName,
                         'email': result[2],
                         'location': result[3],
                         'link': result[4],
                         'img': result[5],
+                        'contact': result[6],
+                        'username': result[7],
                     }
                     return Response(user, status=status.HTTP_200_OK)
                 else:

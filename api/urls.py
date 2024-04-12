@@ -5,7 +5,7 @@ urlpatterns =[
     #user related paths
     path('users/new/', users.newUser, name='newUser'),
     path('users/all/<int:currentUserId>/', users.allUsers, name='allUsers'),
-    path('users/profile/<int:id>', users.updateProfile, name='updateProfile'),
+    path('users/profile/<int:id>/', users.updateProfile, name='updateProfile'),
     path('users/details/<int:userId>/', users.profileInfo, name='profileInfo'),
     path('users/permissions/', users.allPermission, name='allPermission'),
     path('users/role/<int:userId>/<int:permissionId>/', users.addRole, name='addRole'),
