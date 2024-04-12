@@ -5,8 +5,11 @@ from django.db import connection
 from rest_framework import status
 from django.contrib.auth.hashers import make_password, check_password
 from django.http import JsonResponse
-import datetime
+from datetime import datetime
 from django.core.management.base import BaseCommand
+import os
+from django.conf import settings
+from django.core.files.storage import default_storage
 
 @api_view(['POST'])
 def newUser(request):
@@ -395,3 +398,36 @@ def employeeId(request):
                     return JsonResponse({'message': 'No user found'}, status=204)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
+        
+@api_view(['POST'])
+def uploadImage(request, id):
+    if request.method == 'POST':
+        if 'image' in request.FILES:
+            image_data = request.FILES['image']
+            
+            # Generate a unique name for the image using current date and time
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            image_name = f"{timestamp}_{image_data.name}"
+            
+            # Construct the image path
+            image_path = os.path.join('images', image_name)
+            
+            # Save the uploaded image with the new name
+            default_storage.save(image_path, image_data)
+            
+            # Update the database with the new image path
+            query = """
+            UPDATE api_users
+            SET img = %s
+            WHERE id = %s
+            """
+            params = [image_path, id]
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(query, params)
+                    return Response('Image successfully uploaded', status=status.HTTP_200_OK)
+            except Exception as e:
+                print(str(e))
+                return Response({'error': str(e)}, status=500)
+        else:
+            return Response('No image found in request', status=status.HTTP_400_BAD_REQUEST)

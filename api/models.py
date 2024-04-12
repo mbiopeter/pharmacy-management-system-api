@@ -12,7 +12,7 @@ class users(models.Model):
     contact = models.IntegerField(null=True)
     location = models.CharField(max_length=200,null=True,blank=True)
     link = models.CharField(max_length=200,null=True,blank=True)
-    img = models.CharField(max_length=200,null=True,blank=True)
+    img = models.ImageField(upload_to='user_images/', null=True, blank=True)
     status = models.CharField(max_length=200,null=True,blank=True, default='Active')
     deleteTime = models.DateTimeField(null=True,blank=True)
     def __str__(self):

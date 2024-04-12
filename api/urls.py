@@ -12,6 +12,7 @@ urlpatterns =[
     path('users/delete/<int:userId>/', users.deleteUser, name='deleteUser'),
     path('users/role/<int:userId>/', users.getPermissions, name='getPermissions'),
     path('users/recycle/restore/<int:userId>/', users.restoreUser, name='getPermissions'),
+    path('users/profile/image/<int:id>/', users.uploadImage, name='uploadImage'),
     path('users/recycle/all/', users.getRecycledUsers, name='getPermissions'),
     path('users/delete/all/', users.deleteExpired, name='getPermissions'),
     path('users/employeeId/', users.employeeId, name='employeeId'),
