@@ -4,6 +4,10 @@ from rest_framework.decorators import api_view
 from django.db import connection
 from rest_framework import status
 from django.http import JsonResponse
+from datetime import datetime
+import os
+from django.conf import settings
+from django.core.files.storage import default_storage
 
 def addSupplies(batchId, supplierId, supplierPrice):
     if batchId and supplierId and supplierPrice:
@@ -87,12 +91,11 @@ def addMedicine(request):
         shelf = request.data.get('shelf')
         unit = request.data.get('unit')
         description = request.data.get('description')
-        image = request.data.get('image')
         salePrice = request.data.get('salePrice')
         supplierPrice = request.data.get('supplierPrice')
         supplierId = request.data.get('supplierId')
         if brandName and genericName and quantity and expiry:
-            try:
+            try:          
                 checkMed = """
                     SELECT * FROM api_medicine 
                     WHERE brandName = %s 
@@ -105,10 +108,10 @@ def addMedicine(request):
                     if results is None:
                         query = """
                             INSERT INTO 
-                            api_medicine(brandName, genericName, description, `usage`, category, image) 
-                            VALUES(%s, %s, %s, %s, %s, %s)
+                            api_medicine(brandName, genericName, description, `usage`, category) 
+                            VALUES(%s, %s, %s, %s, %s)
                         """
-                        params = [brandName, genericName, description, usage, category, image]
+                        params = [brandName, genericName, description, usage, category]
                         cursor.execute(query, params)
                         connection.commit()
                         medId = cursor.lastrowid
@@ -119,10 +122,9 @@ def addMedicine(request):
                             UPDATE api_medicine
                             SET description = %s,
                             `usage` = %s, 
-                            image = %s
                             WHERE id = %s
                         """
-                        params = [description, usage, image, medId]
+                        params = [description, usage, medId]
                         cursor.execute(query, params)
                         connection.commit()
                         addBatch(quantity, expiry, salePrice, unit, shelf, medId, supplierId, supplierPrice)
@@ -146,13 +148,12 @@ def getAll(request):
             with connection.cursor() as cursor:
                 cursor.execute(query)
                 results = cursor.fetchall()
-                cursor.commit()
                 if results:
                     details = []
                     for row in results:
                         detail = {
                             'medicineId': row[0],
-                            'genericName': row[1],
+                            'name': row[1],
                             'category': row[2],
                             'quantity': row[3],
                             'expiry': row[4],
@@ -163,3 +164,70 @@ def getAll(request):
                     return Response({'message':'No medicine found'}, status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+def getAllCategory(request):
+    if request.method =='GET':
+        query = """
+            SELECT DISTINCT category FROM api_medicine;
+        """
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(query)
+                results = cursor.fetchall()
+                if results:
+                    categories = []
+                    for row in results:
+                        category = {
+                            'name':row[0]
+                        }
+                        categories.append(category)
+                    return Response(categories, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+@api_view(['GET'])
+def medCount(request):
+    if request.method == 'GET':
+        query = """
+            SELECT COUNT(DISTINCT genericName) AS count FROM api_medicine
+        """
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(query)
+                row = cursor.fetchone()
+                if row:
+                    count = row[0]
+                    result = {'count': count}
+                    return Response(result, status=status.HTTP_200_OK)
+                else:
+                    return Response({'error': 'No data found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+@api_view(['POST'])
+def uploadImage(request):
+    if request.method == 'POST':
+        if 'image' in request.FILES:
+            image_data = request.FILES['image']
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            image_name = f"{timestamp}_{image_data.name}"
+            image_path = os.path.join('images', image_name)
+            default_storage.save(image_path, image_data)
+            
+            query = """
+            UPDATE api_medicine
+            SET image = %s
+            WHERE id = (SELECT MAX(id) FROM api_medicine)
+            """
+            params = [image_path]
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(query, params)
+                    return Response('Image successfully uploaded', status=status.HTTP_200_OK)
+            except Exception as e:
+                print(str(e))
+                return Response({'error': str(e)}, status=500)
+        else:
+            return Response('No image found in request', status=status.HTTP_400_BAD_REQUEST)

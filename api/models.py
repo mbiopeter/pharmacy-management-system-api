@@ -12,7 +12,7 @@ class users(models.Model):
     contact = models.IntegerField(null=True)
     location = models.CharField(max_length=200,null=True,blank=True)
     link = models.CharField(max_length=200,null=True,blank=True)
-    img = models.ImageField(upload_to='user_images/', null=True, blank=True)
+    img = models.ImageField(upload_to='files/', null=True, blank=True)
     status = models.CharField(max_length=200,null=True,blank=True, default='Active')
     deleteTime = models.DateTimeField(null=True,blank=True)
     def __str__(self):
@@ -36,7 +36,7 @@ class medicine(models.Model):
     description = models.TextField()
     usage = models.TextField()
     category = models.CharField(max_length=200,null=False,blank=False)
-    image = models.CharField(max_length=200,null=False,blank=False)
+    image = models.ImageField(upload_to='files/', null=True, blank=True)
     def __str__(self):
         return self.genericName
     

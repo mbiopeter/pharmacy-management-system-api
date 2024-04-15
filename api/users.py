@@ -404,18 +404,11 @@ def uploadImage(request, id):
     if request.method == 'POST':
         if 'image' in request.FILES:
             image_data = request.FILES['image']
-            
-            # Generate a unique name for the image using current date and time
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             image_name = f"{timestamp}_{image_data.name}"
-            
-            # Construct the image path
             image_path = os.path.join('images', image_name)
-            
-            # Save the uploaded image with the new name
             default_storage.save(image_path, image_data)
             
-            # Update the database with the new image path
             query = """
             UPDATE api_users
             SET img = %s
@@ -431,3 +424,60 @@ def uploadImage(request, id):
                 return Response({'error': str(e)}, status=500)
         else:
             return Response('No image found in request', status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+def roleName(request, userId):
+    if request.method == 'GET':
+        if userId:
+            cashier_query = """
+                SELECT * FROM api_roles 
+                WHERE user_id = %s 
+                AND (SELECT COUNT(*) FROM api_roles WHERE user_id = %s) <= 10
+            """
+            pharmacist_query = """
+                SELECT * FROM api_roles 
+                WHERE user_id = %s 
+                AND (SELECT COUNT(*) FROM api_roles WHERE user_id = %s) > 10 
+                AND (SELECT COUNT(*) FROM api_roles WHERE user_id = %s) <= 15
+            """
+            admin_query = """
+                SELECT * FROM api_roles 
+                WHERE user_id = %s 
+                AND (SELECT COUNT(*) FROM api_roles WHERE user_id = %s) > 15 
+                AND (SELECT COUNT(*) FROM api_roles WHERE user_id = %s) <= 20
+            """
+            super_admin_query = """
+                SELECT * FROM api_roles 
+                WHERE user_id = %s 
+                AND (SELECT COUNT(*) FROM api_roles WHERE user_id = %s) > 20
+            """
+            param_one = [userId, userId]
+            params_two = [userId, userId, userId] 
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(cashier_query, param_one)
+                    results = cursor.fetchall()
+                    if results:
+                        return Response({'role': 'cashier'}, status=status.HTTP_200_OK)
+
+                    cursor.execute(pharmacist_query, params_two)
+                    results = cursor.fetchall()
+                    if results:
+                        return Response({'role': 'pharmacist'}, status=status.HTTP_200_OK)
+
+                    cursor.execute(admin_query, params_two)
+                    results = cursor.fetchall()
+                    if results:
+                        return Response({'role': 'admin'}, status=status.HTTP_200_OK)
+
+                    cursor.execute(super_admin_query, param_one)
+                    results = cursor.fetchall()
+                    if results:
+                        return Response({'role': 'super admin'}, status=status.HTTP_200_OK)
+
+                    return Response({'role': 'pedding'}, status=status.HTTP_200_OK)
+
+            except Exception as e:
+                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            return Response('No userId found in request', status=status.HTTP_400_BAD_REQUEST)

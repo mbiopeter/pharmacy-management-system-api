@@ -13,6 +13,7 @@ urlpatterns =[
     path('users/role/<int:userId>/', users.getPermissions, name='getPermissions'),
     path('users/recycle/restore/<int:userId>/', users.restoreUser, name='getPermissions'),
     path('users/profile/image/<int:id>/', users.uploadImage, name='uploadImage'),
+    path('users/roles/name/<int:userId>/', users.roleName, name='roleName'),
     path('users/recycle/all/', users.getRecycledUsers, name='getPermissions'),
     path('users/delete/all/', users.deleteExpired, name='getPermissions'),
     path('users/employeeId/', users.employeeId, name='employeeId'),
@@ -21,4 +22,7 @@ urlpatterns =[
     #medicine related paths
     path('medicine/add/', medicines.addMedicine, name='addMedicine'),
     path('medicine/all/', medicines.getAll, name='getAll'),
+    path('medicine/image/', medicines.uploadImage, name='uploadImage'),
+    path('medicine/count/all/', medicines.medCount, name='medCount'),
+    path('medicine/category/all/', medicines.getAllCategory, name='getAllCategory'),
 ]
