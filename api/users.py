@@ -10,7 +10,6 @@ from django.core.management.base import BaseCommand
 import os
 from django.conf import settings
 from django.core.files.storage import default_storage
-
 @api_view(['POST'])
 def newUser(request):
     if request.method  == 'POST':

@@ -94,46 +94,42 @@ def addMedicine(request):
         salePrice = request.data.get('salePrice')
         supplierPrice = request.data.get('supplierPrice')
         supplierId = request.data.get('supplierId')
+        image_data = request.FILES.get('image')  # Retrieve the image data from request
+        
         if brandName and genericName and quantity and expiry:
-            try:          
-                checkMed = """
-                    SELECT * FROM api_medicine 
-                    WHERE brandName = %s 
-                    AND genericName = %s
-                """
-                checkParams = [brandName, genericName]
+            try:
+                if image_data:  # Check if image data is present
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    image_name = f"{timestamp}_{image_data.name}"
+                    image_path = os.path.join('images', image_name)
+                    default_storage.save(image_path, image_data)  # Save the image to storage
+                    
+                    # Update the medicine entry with the image path
+                    query = """
+                    INSERT INTO 
+                    api_medicine(brandName, genericName, description, `usage`, category, image) 
+                    VALUES(%s, %s, %s, %s, %s, %s)
+                    """
+                    params = [brandName, genericName, description, usage, category, image_path]
+                else:
+                    query = """
+                    INSERT INTO 
+                    api_medicine(brandName, genericName, description, `usage`, category) 
+                    VALUES(%s, %s, %s, %s, %s)
+                    """
+                    params = [brandName, genericName, description, usage, category]
+                    
                 with connection.cursor() as cursor:
-                    cursor.execute(checkMed, checkParams)
-                    results = cursor.fetchone()
-                    if results is None:
-                        query = """
-                            INSERT INTO 
-                            api_medicine(brandName, genericName, description, `usage`, category) 
-                            VALUES(%s, %s, %s, %s, %s)
-                        """
-                        params = [brandName, genericName, description, usage, category]
-                        cursor.execute(query, params)
-                        connection.commit()
-                        medId = cursor.lastrowid
-                        addBatch(quantity, expiry, salePrice, unit, shelf, medId, supplierId, supplierPrice)
-                    else:
-                        medId = results[0]
-                        query = """
-                            UPDATE api_medicine
-                            SET description = %s,
-                            `usage` = %s, 
-                            WHERE id = %s
-                        """
-                        params = [description, usage, medId]
-                        cursor.execute(query, params)
-                        connection.commit()
-                        addBatch(quantity, expiry, salePrice, unit, shelf, medId, supplierId, supplierPrice)
+                    cursor.execute(query, params)
+                    connection.commit()
+                    medId = cursor.lastrowid
+                    addBatch(quantity, expiry, salePrice, unit, shelf, medId, supplierId, supplierPrice)
             except Exception as e:
                 return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             return Response({'error': 'Missing required fields.'}, status=status.HTTP_400_BAD_REQUEST)
         return JsonResponse({'message': 'Medicine added successfully.'}, status=status.HTTP_201_CREATED)
-    
+
 
 @api_view(['GET'])
 def getAll(request):
@@ -206,7 +202,6 @@ def medCount(request):
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 
-@api_view(['POST'])
 def uploadImage(request):
     if request.method == 'POST':
         if 'image' in request.FILES:
