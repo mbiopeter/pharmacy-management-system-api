@@ -94,17 +94,16 @@ def addMedicine(request):
         salePrice = request.data.get('salePrice')
         supplierPrice = request.data.get('supplierPrice')
         supplierId = request.data.get('supplierId')
-        image_data = request.FILES.get('image')  # Retrieve the image data from request
+        image_data = request.FILES.get('image') 
         
         if brandName and genericName and quantity and expiry:
             try:
-                if image_data:  # Check if image data is present
+                if image_data:
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     image_name = f"{timestamp}_{image_data.name}"
                     image_path = os.path.join('images', image_name)
-                    default_storage.save(image_path, image_data)  # Save the image to storage
+                    default_storage.save(image_path, image_data) 
                     
-                    # Update the medicine entry with the image path
                     query = """
                     INSERT INTO 
                     api_medicine(brandName, genericName, description, `usage`, category, image) 
@@ -118,12 +117,24 @@ def addMedicine(request):
                     VALUES(%s, %s, %s, %s, %s)
                     """
                     params = [brandName, genericName, description, usage, category]
-                    
+                check = """
+                    SELECT * FROM api_medicine 
+                    WHERE brandName =%s 
+                    AND genericName =%s 
+                    AND category =%s
+                """
+                checkParams = [brandName, genericName, category]    
                 with connection.cursor() as cursor:
-                    cursor.execute(query, params)
-                    connection.commit()
-                    medId = cursor.lastrowid
-                    addBatch(quantity, expiry, salePrice, unit, shelf, medId, supplierId, supplierPrice)
+                    cursor.execute(check, checkParams)
+                    results = cursor.fetchone()
+                    if results is None:
+                        cursor.execute(query, params)
+                        connection.commit()
+                        medId = cursor.lastrowid
+                        addBatch(quantity, expiry, salePrice, unit, shelf, medId, supplierId, supplierPrice)
+                    else:
+                        medId = results[0]
+                        addBatch(quantity, expiry, salePrice, unit, shelf, medId, supplierId, supplierPrice)
             except Exception as e:
                 return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
@@ -135,9 +146,9 @@ def addMedicine(request):
 def getAll(request):
     if request.method == 'GET':
         query = """
-            SELECT m.id,m.genericName,m.category,b.quantity,b.expiry 
+            SELECT b.id,m.genericName,m.brandName,m.category,b.quantity,b.expiry 
             FROM api_medicine as m 
-            INNER JOIN api_batch as b 
+            RIGHT JOIN api_batch as b 
             ON m.id = b.medicine_id
         """
         try:
@@ -147,12 +158,14 @@ def getAll(request):
                 if results:
                     details = []
                     for row in results:
+                        expiry_date = row[5].strftime('%Y-%m-%d')
                         detail = {
-                            'medicineId': row[0],
+                            'batchId': row[0],
                             'name': row[1],
-                            'category': row[2],
-                            'quantity': row[3],
-                            'expiry': row[4],
+                            'brandName':row[2],
+                            'category': row[3],
+                            'quantity': row[4],
+                            'expiry':expiry_date,
                         }
                         details.append(detail)
                     return Response(details, status=status.HTTP_200_OK)
@@ -201,28 +214,24 @@ def medCount(request):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-
-def uploadImage(request):
-    if request.method == 'POST':
-        if 'image' in request.FILES:
-            image_data = request.FILES['image']
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            image_name = f"{timestamp}_{image_data.name}"
-            image_path = os.path.join('images', image_name)
-            default_storage.save(image_path, image_data)
-            
-            query = """
-            UPDATE api_medicine
-            SET image = %s
-            WHERE id = (SELECT MAX(id) FROM api_medicine)
-            """
-            params = [image_path]
-            try:
-                with connection.cursor() as cursor:
-                    cursor.execute(query, params)
-                    return Response('Image successfully uploaded', status=status.HTTP_200_OK)
-            except Exception as e:
-                print(str(e))
-                return Response({'error': str(e)}, status=500)
-        else:
-            return Response('No image found in request', status=status.HTTP_400_BAD_REQUEST)
+@api_view(['GET', 'POST'])
+def allSuppliers(request):
+    if request.method == 'GET':
+        query ="""
+            SELECT * FROM api_supplier
+        """
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(query)
+                results = cursor.fetchall()
+                if results:
+                    suppliers = []
+                    for row in results:
+                        supplier = {
+                            'id':row[0],
+                            'name':row[1]
+                        }
+                        suppliers.append(supplier)
+                    return Response(suppliers, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

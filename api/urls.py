@@ -24,4 +24,5 @@ urlpatterns =[
     path('medicine/all/', medicines.getAll, name='getAll'),
     path('medicine/count/all/', medicines.medCount, name='medCount'),
     path('medicine/category/all/', medicines.getAllCategory, name='getAllCategory'),
+    path('medicine/suppliers/all/', medicines.allSuppliers, name='allSuppliers'),
 ]
