@@ -65,8 +65,7 @@ def addBatch(quantity, expiry, salePrice, unit, shelf, medId, supplierId, suppli
                 addSupplies(batchId, supplierId, supplierPrice)
             else:
                 batchId = results[0]
-                newQuantity = results[1] + quantity
-                batchId = results[0]
+                newQuantity = int(results[1]) + int(quantity)
                 query = """
                     UPDATE api_batch 
                     SET quantity = %s,
@@ -76,7 +75,6 @@ def addBatch(quantity, expiry, salePrice, unit, shelf, medId, supplierId, suppli
                 """
                 params = [newQuantity,salePrice, expiry, medId]
                 cursor.execute(query, params)
-                connection.commit()
                 addSupplies(batchId, supplierId, supplierPrice)
 
 @api_view(['POST'])
@@ -233,5 +231,31 @@ def allSuppliers(request):
                         }
                         suppliers.append(supplier)
                     return Response(suppliers, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+@api_view(['GET'])
+def distictMed(request):
+    if request.method == 'GET':
+        query = """
+            SELECT DISTINCT id, brandName, GenericName
+            FROM api_medicine
+        """
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(query)
+                results = cursor.fetchall()
+                if results:
+                    details = []
+                    for row in results:
+                        detail = {
+                            'Id': row[0],
+                            'brandName':row[1],
+                            'name': row[2],
+                        }
+                        details.append(detail)
+                    return Response(details, status=status.HTTP_200_OK)
+                else:
+                    return Response({'message':'No medicine found'}, status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
