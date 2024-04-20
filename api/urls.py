@@ -1,5 +1,5 @@
 from django.urls import path
-from .import users,medicines
+from .import users,medicines,invoice
 
 urlpatterns =[
     #user related paths
@@ -26,4 +26,10 @@ urlpatterns =[
     path('medicine/count/all/', medicines.medCount, name='medCount'),
     path('medicine/category/all/', medicines.getAllCategory, name='getAllCategory'),
     path('medicine/suppliers/all/', medicines.allSuppliers, name='allSuppliers'),
+    path('medicine/supply/lifetime/<int:medId>/', medicines.description, name='description'),
+    path('medicine/delete/<int:bId>/', medicines.deleteMed, name='deleteMed'),
+    #invoive related paths
+    path('invoice/medicine/getall/', invoice.getallMedicine, name='getallMedicine'),
+    path('invoice/cart/', invoice.addCart, name='addCart'),
+    path('invoice/getCart/<int:sellerId>/', invoice.getCart, name='getCart'),
 ]

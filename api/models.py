@@ -37,6 +37,7 @@ class medicine(models.Model):
     usage = models.TextField()
     category = models.CharField(max_length=200,null=False,blank=False)
     image = models.ImageField(upload_to='files/', null=True, blank=True)
+    quantity = models.IntegerField(null=True)
     def __str__(self):
         return self.genericName
     
@@ -59,7 +60,13 @@ class sales(models.Model):
     batch = models.ForeignKey(batch, on_delete=models.CASCADE)
     date = models.DateTimeField(max_length=10,null=True,blank=True)
     price = models.IntegerField(null=False)
-    saler_id =  models.IntegerField(default=0)
+    seller_id =  models.IntegerField(default=0)
+    quantity = models.IntegerField(null=True)
+    discount = models.IntegerField(null=True)
+    name = models.CharField(max_length=200,null=True,blank=True)
+    Phone = models.IntegerField(null=True)
+    email = models.CharField(max_length=200,null=True,blank=True)
+    status = models.CharField(max_length=200,null=True,blank=True)
     def __str__(self):
         return self.batchId
     
@@ -67,5 +74,6 @@ class supplies(models.Model):
     batch = models.ForeignKey(batch, on_delete=models.CASCADE)
     supplier = models.ForeignKey(supplier, on_delete=models.CASCADE, default=None)
     supplierPrice = models.IntegerField(null=True)
+    quantity = models.IntegerField(null=True)
     def __str__(self):
         return self.supplierId

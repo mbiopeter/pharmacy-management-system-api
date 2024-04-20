@@ -8,8 +8,10 @@ from datetime import datetime
 import os
 from django.conf import settings
 from django.core.files.storage import default_storage
+from django.db import transaction
 
-def addSupplies(batchId, supplierId, supplierPrice):
+#MEDICINE TRANSACTIONS FUNCTIONS     
+def addSupplies(batchId, supplierId, supplierPrice, quantity):
     if batchId and supplierId and supplierPrice:
         query = """
             SELECT * FROM api_supplies 
@@ -17,29 +19,33 @@ def addSupplies(batchId, supplierId, supplierPrice):
             AND supplier_id = %s
         """
         params = [batchId, supplierId]
-        with connection.cursor() as cursor:
-            cursor.execute(query, params)
-            results = cursor.fetchone()
-            if results is None:
-                query = """
-                    INSERT INTO 
-                    api_supplies(batch_id, supplier_id, supplierPrice) 
-                    VALUES(%s, %s, %s)
-                """
-                params = [batchId, supplierId, supplierPrice]
+        try:
+            with connection.cursor() as cursor:
                 cursor.execute(query, params)
-                connection.commit()
-                return Response({'message': 'Medicine created successfully.'}, status=status.HTTP_201_CREATED)
-            else:
-                query = """
-                    UPDATE api_supplies 
-                    SET supplierPrice = %s
-                    WHERE batch_id = %s
-                """
-                param = [supplierPrice, batchId]
-                cursor.execute(query, param)
-                connection.commit()
-                return Response({'message': 'Medicine successfully updated.'}, status=status.HTTP_200_OK)
+                results = cursor.fetchone()
+                if results is None:
+                    query = """
+                        INSERT INTO 
+                        api_supplies(batch_id, supplier_id, supplierPrice, quantity) 
+                        VALUES(%s, %s, %s, %s)
+                    """
+                    params = [batchId, supplierId, supplierPrice,quantity]
+                    cursor.execute(query, params)
+                    connection.commit()
+                    return Response({'message': 'Medicine created successfully.'}, status=status.HTTP_201_CREATED)
+                else:
+                    query = """
+                        UPDATE api_supplies 
+                        SET supplierPrice = %s,
+                        quantity = %s
+                        WHERE batch_id = %s
+                    """
+                    newQuantity = int(results[4]) + int(quantity)
+                    param = [supplierPrice,newQuantity, batchId]
+                    cursor.execute(query, param)
+                    return Response({'message': 'Medicine successfully updated.'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 def addBatch(quantity, expiry, salePrice, unit, shelf, medId, supplierId, supplierPrice):
     if medId:
@@ -49,34 +55,37 @@ def addBatch(quantity, expiry, salePrice, unit, shelf, medId, supplierId, suppli
             AND medicine_id = %s
         """
         params = [expiry, medId]
-        with connection.cursor() as cursor:
-            cursor.execute(query, params)
-            results = cursor.fetchone()
-            if results is None:
-                query = """
-                    INSERT INTO 
-                    api_batch(quantity, expiry, price, unit, shelf, medicine_id) 
-                    VALUES(%s, %s, %s, %s, %s, %s)
-                """
-                params = [quantity, expiry, salePrice, unit, shelf, medId]
+        try:
+            with connection.cursor() as cursor:
                 cursor.execute(query, params)
-                connection.commit()
-                batchId = cursor.lastrowid
-                addSupplies(batchId, supplierId, supplierPrice)
-            else:
-                batchId = results[0]
-                newQuantity = int(results[1]) + int(quantity)
-                query = """
-                    UPDATE api_batch 
-                    SET quantity = %s,
-                    price = %s 
-                    WHERE expiry = %s 
-                    AND medicine_id = %s
-                """
-                params = [newQuantity,salePrice, expiry, medId]
-                cursor.execute(query, params)
-                addSupplies(batchId, supplierId, supplierPrice)
-
+                results = cursor.fetchone()
+                if results is None:
+                    query = """
+                        INSERT INTO 
+                        api_batch(quantity, expiry, price, unit, shelf, medicine_id) 
+                        VALUES(%s, %s, %s, %s, %s, %s)
+                    """
+                    params = [quantity, expiry, salePrice, unit, shelf, medId]
+                    cursor.execute(query, params)
+                    connection.commit()
+                    batchId = cursor.lastrowid
+                    addSupplies(batchId, supplierId, supplierPrice,quantity)
+                else:
+                    batchId = results[0]
+                    newQuantity = int(results[1]) + int(quantity)
+                    query = """
+                        UPDATE api_batch 
+                        SET quantity = %s,
+                        price = %s 
+                        WHERE expiry = %s 
+                        AND medicine_id = %s
+                    """
+                    params = [newQuantity,salePrice, expiry, medId]
+                    cursor.execute(query, params)
+                    addSupplies(batchId, supplierId, supplierPrice, quantity)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 @api_view(['POST'])
 def addMedicine(request):
     if request.method == 'POST':
@@ -104,22 +113,27 @@ def addMedicine(request):
                     
                     query = """
                     INSERT INTO 
-                    api_medicine(brandName, genericName, description, `usage`, category, image) 
-                    VALUES(%s, %s, %s, %s, %s, %s)
+                    api_medicine(brandName, genericName, description, `usage`, category, image, quantity) 
+                    VALUES(%s, %s, %s, %s, %s, %s, %s)
                     """
-                    params = [brandName, genericName, description, usage, category, image_path]
+                    params = [brandName, genericName, description, usage, category, image_path, quantity]
                 else:
                     query = """
                     INSERT INTO 
-                    api_medicine(brandName, genericName, description, `usage`, category) 
+                    api_medicine(brandName, genericName, description, `usage`, category, quantity) 
                     VALUES(%s, %s, %s, %s, %s)
                     """
-                    params = [brandName, genericName, description, usage, category]
+                    params = [brandName, genericName, description, usage, category, quantity]
                 check = """
                     SELECT * FROM api_medicine 
                     WHERE brandName =%s 
                     AND genericName =%s 
                     AND category =%s
+                """
+                update = """
+                    UPDATE api_medicine 
+                    SET quantity =%s 
+                    WHERE id =%s
                 """
                 checkParams = [brandName, genericName, category]    
                 with connection.cursor() as cursor:
@@ -132,6 +146,9 @@ def addMedicine(request):
                         addBatch(quantity, expiry, salePrice, unit, shelf, medId, supplierId, supplierPrice)
                     else:
                         medId = results[0]
+                        newQuantity = int(results[7]) + int(quantity)
+                        updateParams = [newQuantity, medId]
+                        cursor.execute(update, updateParams)
                         addBatch(quantity, expiry, salePrice, unit, shelf, medId, supplierId, supplierPrice)
             except Exception as e:
                 return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -257,5 +274,69 @@ def distictMed(request):
                     return Response(details, status=status.HTTP_200_OK)
                 else:
                     return Response({'message':'No medicine found'}, status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+#MEDICINE DESCRIPTION FUNCTIONS
+
+@api_view(['GET', 'POST'])
+def description(request, medId):
+    if request.method == 'GET':
+        query = """
+            SELECT m.id, m.quantity, m.description, m.usage, b.quantity ,m.genericName
+            FROM api_medicine AS m 
+            LEFT JOIN api_batch AS b 
+            ON m.id = b.medicine_id 
+            WHERE b.id = %s
+        """
+        param = [medId]
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(query, param)
+                result = cursor.fetchone()
+                details = {
+                    'id': result[0],
+                    'lifetimeSupply':result[1],
+                    'description':result[2],
+                    'usage':result[3],
+                    'stockLeft':result[4],
+                    'name':result[5]
+                }
+                if result:                  
+                    return Response(details, status=status.HTTP_200_OK) 
+                else:
+                    return Response({'message':'No medicine found'}, status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+def deleteMed(request, bId):
+    if request.method == 'POST':
+        check = """
+            SELECT quantity 
+            FROM  api_batch 
+            WHERE id = %s
+        """
+        deleteBatch = """
+            DELETE FROM api_batch 
+            WHERE id = %s
+        """
+        deleteSupplies = """
+            DELETE FROM api_supplies 
+            WHERE batch_id = %s
+        """
+        param = [bId]
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(check, param)
+                result = cursor.fetchone()
+                if result is not None:
+                    quantity = result[0]
+                    if quantity > 0:
+                        return Response({'message':'Medicine is still in stock'}, status=status.HTTP_200_OK)
+                    else:
+                        cursor.execute(deleteSupplies,param)
+                        cursor.execute(deleteBatch, param)
+                        return Response({'message':'Medicine is successfully deleted'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

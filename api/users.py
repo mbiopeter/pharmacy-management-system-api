@@ -5,12 +5,11 @@ from django.db import connection
 from rest_framework import status
 from django.contrib.auth.hashers import make_password, check_password
 from django.http import JsonResponse
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.core.management.base import BaseCommand
 import os
 from django.conf import settings
 from django.core.files.storage import default_storage
-import datetime
 @api_view(['POST'])
 def newUser(request):
     if request.method  == 'POST':
@@ -298,7 +297,7 @@ def getPermissions(request,userId):
 def deleteUser(request, userId):
     if request.method == 'POST':   
         if userId:    
-            current_datetime = datetime.datetime.now()
+            current_datetime = datetime.now()
             time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
             query = """
                 UPDATE api_users 
@@ -320,7 +319,7 @@ def deleteUser(request, userId):
 @api_view(['DELETE'])
 def deleteExpired(request):
     if request.method == 'DELETE':   
-        thirty_days_ago = datetime.datetime.now() - datetime.timedelta(days=30)
+        thirty_days_ago = datetime.now() - timedelta(days=30)
         query = """
             DELETE FROM api_users WHERE status = 'Deleted' AND deleteTime < %s
         """
@@ -336,7 +335,7 @@ def deleteExpired(request):
 def restoreUser(request, userId):
     if request.method == 'POST':
         if userId:
-            now =  datetime.datetime.now()
+            now =  datetime.now()
             query = """
                 UPDATE api_users SET status = %s,deleteTime = %s  WHERE id = %s
             """
