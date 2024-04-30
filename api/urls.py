@@ -32,4 +32,6 @@ urlpatterns =[
     path('invoice/medicine/getall/', invoice.getallMedicine, name='getallMedicine'),
     path('invoice/cart/', invoice.addCart, name='addCart'),
     path('invoice/getCart/<int:sellerId>/', invoice.getCart, name='getCart'),
+    path('invoice/getCartAmaunt/<int:sellerId>/', invoice.getcartAmount, name='getcartAmount'),
+    path('invoice/delete/<int:batchId>/<int:saleId>/<int:quantity>/', invoice.deleteCart, name='deleteCart'),
 ]

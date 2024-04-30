@@ -15,7 +15,7 @@ from django.db import transaction
 def getallMedicine(request):
     if request.method == 'GET':
         query = """
-            SELECT b.id, m.genericName, m.image, b.quantity, b.expiry  
+            SELECT b.id, m.genericName, m.image, b.quantity,b.price, b.expiry  
             FROM api_batch AS b 
             LEFT JOIN api_medicine AS m 
             ON m.id = b.medicine_id 
@@ -28,12 +28,14 @@ def getallMedicine(request):
                 if results:
                     details = []
                     for row in results:
+                        expiry_date = row[5].strftime('%Y-%m-%d')
                         detail = {
                             'id':row[0],
                             'name':row[1],
                             'img':row[2],
                             'qty':row[3],
-                            'expiry':row[4]
+                            'price':row[4],
+                            'expiry':expiry_date
                         }
                         details.append(detail)
                     return Response(details, status=status.HTTP_200_OK)
@@ -42,61 +44,11 @@ def getallMedicine(request):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)    
             
-@api_view(["POST"])
-def addCart(request):
-    if request.method == 'POST':
-        batchId = request.data.get('batchId')
-        price = request.data.get('price')
-        discount = request.data.get('discount')
-        quantity = request.data.get('quantity')
-        name = request.data.get('name')
-        email = request.data.get('email')
-        phone = request.data.get('phone')
-        sellerId = request.data.get('sellerId')
-        if batchId is None:
-            return Response({'error': "Batch ID cannot be null"}, status=status.HTTP_400_BAD_REQUEST)
-        queryCheck = """
-            SELECT * FROM api_sales 
-            WHERE batch_id = %s 
-            AND seller_id = %s
-        """
-        checkParams = [batchId, sellerId]
-        queryAdd = """
-            INSERT INTO 
-            api_sales(date, price, batch_id, seller_id, quantity, phone, discount, email, name, status) 
-            VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        queryAddParams = [timestamp, price, batchId, sellerId, quantity, phone, discount, email, name, 'Pedding']
-        queryUpdate = """
-            UPDATE api_sales 
-            SET quantity = %s, 
-            price = %s, 
-            discount = %s 
-            WHERE batch_id = %s 
-            AND seller_id = %s 
-            AND status = %s
-        """
-        queryUpdateParams = [quantity, price, discount, batchId, sellerId, 'pedding']
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute(queryCheck, checkParams)
-                results = cursor.fetchone()
-                if results is not None:
-                    cursor.execute(queryUpdate, queryUpdateParams)
-                    return Response({'Message':'Medicine Cart Successfully update'}, status=status.HTTP_200_OK)
-                else:
-                    cursor.execute(queryAdd, queryAddParams)
-                    return Response({'Message':'Medicine Successfully added to cart'}, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-
 @api_view(["GET"])
 def getCart(request, sellerId):
     if request.method == 'GET':
         query = """
-            SELECT s.id, m.genericName, s.quantity
+            SELECT s.id, m.genericName, s.quantity,b.id, s.discount,s.price, m.image, s.batch_id
             FROM api_medicine m
             INNER JOIN api_batch b ON m.id = b.medicine_id
             INNER JOIN api_sales s ON b.id = s.batch_id
@@ -109,21 +61,139 @@ def getCart(request, sellerId):
                 cursor.execute(query, params)
                 results = cursor.fetchall()
                 if results:
-                    medicine_quantities = {}
-                    medicine_id = 0
+                    details = []
                     for row in results:
-                        medicine_id = medicine_id + 1
-                        medicine_name = row[1]
-                        quantity = row[2]
-                        
-                        if medicine_name in medicine_quantities:
-                            medicine_quantities[medicine_name] += quantity
-                        else:
-                            medicine_quantities[medicine_name] = quantity
-                    
-                    details = [{'id':medicine_id,'name': name, 'quantity': quantity} for name, quantity in medicine_quantities.items()]                   
+                        detail = {
+                            'id':row[0],
+                            'name':row[1],
+                            'quantity':row[2],
+                            'batchId':row[3],
+                            'discount':row[4],
+                            'price':row[5],
+                            'img':row[6],
+                            'batchId':row[7],
+                        }
+                        details.append(detail)
                     return Response(details, status=status.HTTP_200_OK)
                 else:
                     return Response("No items found in cart", status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)     
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)    
+
+@api_view(['POST'])
+def deleteCart(request,batchId,saleId,quantity):
+    if request.method == 'POST':
+
+        delete = """
+            DELETE FROM api_sales 
+            WHERE id = %s
+        """
+        deleteParam = [saleId]
+        update = """
+            UPDATE api_batch 
+            SET quantity = quantity + %s 
+            WHERE id = %s
+        """
+        updateParams = [quantity,batchId]
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(update,updateParams)
+                cursor.execute(delete,deleteParam)
+                return Response({'message':'Item successfully removed from the cart'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)          
+        
+@api_view(['GET'])
+def getcartAmount(request,sellerId):
+    if request.method == 'GET':
+        query ="""
+            SELECT price, discount, quantity
+            FROM api_sales             
+            WHERE seller_id = %s
+            AND status = %s
+        """
+        params = [sellerId, 'pedding']
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(query,params)
+                results = cursor.fetchall()
+                if results:
+                    subtotal = 0
+                    subdiscount = 0
+                    for row in results:
+                        subtotal = subtotal + (row[0] * row[2])
+                        subdiscount = subdiscount + (row[1] * row[2])
+                    total = subtotal - subdiscount
+                    details = {
+                        'subtotal':subtotal,
+                        'subdiscount':subdiscount,
+                        'total':total
+                    }
+                    return Response(details, status=status.HTTP_200_OK)
+                else:
+                    return Response('unable to calculate the amaunt', status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)          
+        
+
+@api_view(['POST'])
+def addCart(request):
+    if request.method == 'POST':
+        sellerId = request.data.get('sellerId')
+        quantity = request.data.get('quantity')
+        discount = request.data.get('discount')
+        batchId = request.data.get('batchId')
+        date = datetime.now().strftime("%Y%m%d_%H%M%S")
+        if sellerId and quantity and batchId:
+            try:
+                with connection.cursor() as cursor:
+                    query = """
+                        SELECT price, quantity FROM api_batch 
+                        WHERE id = %s
+                    """
+                    param = [batchId]
+                    updateQuantityQuery = """
+                        UPDATE api_batch 
+                        SET quantity = quantity - %s 
+                        WHERE id = %s
+                    """ 
+                    updateQuantityParams = [quantity,batchId]
+                    addCartQuery = """
+                        INSERT INTO 
+                        api_sales(date, price, batch_id, seller_id, quantity, discount, status) 
+                        VALUES(%s, %s, %s, %s, %s, %s, %s)
+                    """
+                    checkExistenceQuery = """
+                        SELECT * FROM api_sales 
+                        WHERE batch_id = %s 
+                        AND seller_id = %s 
+                        AND status = %s
+                    """
+                    checkExistenceParams = [batchId, sellerId, 'pedding']
+                    #get the price and quantity of the batch
+                    cursor.execute(query, param)
+                    result = cursor.fetchone()
+                    price = result[0]
+                    availableQuantity = result[1]
+
+                    addCartParams = [date, price, batchId, sellerId, quantity, discount, 'pedding']
+                    #check if the quantity is availble for sale
+                    if int(availableQuantity) >= int(quantity):
+                        cursor.execute(checkExistenceQuery, checkExistenceParams)
+                        rowCount = cursor.rowcount
+                        if rowCount >= 1:
+                            return Response({'message':'Item already exist in the cart'}, status=status.HTTP_200_OK)
+                        else:
+                            cursor.execute(updateQuantityQuery, updateQuantityParams)
+                            cursor.execute(addCartQuery, addCartParams)
+                            return Response({'message':'Item successfully added to the cart'}, status=status.HTTP_200_OK)
+                    else:
+                        return Response({'massage': 'Quantity not enough to support the transaction'}, status=status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE)  
+            except Exception as e:
+                print(str(e))
+                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)            
+        else:
+            return Response('missing requred field', status=status.HTTP_403_FORBIDDEN)
+    else:
+        return Response('unable to calculate the amaunt', status=status.HTTP_400_BAD_REQUEST)
+    
